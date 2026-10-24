@@ -1,0 +1,23 @@
+agent:
+  podTemplates:
+    docker-builder: |
+      - name: docker-builder
+        label: docker-builder
+        containers:
+          - name: docker
+            image: docker:27-cli
+            command: "cat"
+            ttyEnabled: true
+            envVars:
+              - envVar:
+                  key: DOCKER_HOST
+                  value: tcp://localhost:2375
+          - name: dind
+            image: docker:27-dind
+            command: "dockerd-entrypoint.sh"
+            args: "--host=tcp://0.0.0.0:2375 --tls=false"
+            privileged: true
+            envVars:
+              - envVar:
+                  key: DOCKER_TLS_CERTDIR
+                  value: ""
