@@ -21,6 +21,7 @@ pipeline {
               local-devops/payments:dev \
               local-devops/web:dev
           '''
+            chmod 644 artifacts/store-images.tar
         }
         archiveArtifacts artifacts: 'artifacts/store-images.tar', fingerprint: true
       }
