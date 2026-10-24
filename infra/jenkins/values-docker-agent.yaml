@@ -21,3 +21,9 @@ agent:
               - envVar:
                   key: DOCKER_TLS_CERTDIR
                   value: ""
+  controller:
+  probes:
+    startupProbe:
+      failureThreshold: 60
+      periodSeconds: 10
+      timeoutSeconds: 10
