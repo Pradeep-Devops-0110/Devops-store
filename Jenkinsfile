@@ -1,9 +1,9 @@
+
 pipeline {
   agent any
-  options { timestamps() }
 
   stages {
-    stage('Check project structure') {
+    stage('Check project files') {
       steps {
         sh 'test -f services/products/app.py'
         sh 'test -f services/orders/app.py'
