@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devtools
+  labels:
+    purpose: local-devops-platform

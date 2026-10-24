@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shop-db-init
+  namespace: app-dev
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS products(id SERIAL PRIMARY KEY,name TEXT NOT NULL,description TEXT NOT NULL,price_cents INTEGER NOT NULL,stock INTEGER NOT NULL DEFAULT 100);
+    CREATE TABLE IF NOT EXISTS orders(id UUID PRIMARY KEY,customer_email TEXT NOT NULL,total_cents INTEGER NOT NULL,status TEXT NOT NULL,payment_id TEXT,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS order_items(order_id UUID REFERENCES orders(id) ON DELETE CASCADE,product_id INTEGER,product_name TEXT,quantity INTEGER,unit_price_cents INTEGER,PRIMARY KEY(order_id,product_id));
+    INSERT INTO products(name,description,price_cents,stock) VALUES ('Everyday Backpack','Durable 20L backpack for work and travel.',4999,25),('Insulated Bottle','Reusable stainless steel bottle, 750 ml.',1899,40),('Desk Lamp','Dimmable LED lamp with warm light.',3299,15);
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: postgres, namespace: app-dev}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: postgres}}
+  template:
+    metadata: {labels: {app: postgres}}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - {name: POSTGRES_DB, value: shop}
+            - {name: POSTGRES_USER, value: shop}
+            - {name: POSTGRES_PASSWORD, value: local_only_change_me}
+          ports: [{name: postgres, containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["sh", "-c", "pg_isready -U shop -d shop"]}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - {name: db-init, mountPath: /docker-entrypoint-initdb.d/init.sql, subPath: init.sql, readOnly: true}
+            - {name: db-data, mountPath: /var/lib/postgresql/data}
+      volumes:
+        - {name: db-init, configMap: {name: shop-db-init}}
+        - {name: db-data, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: postgres, namespace: app-dev}
+spec:
+  selector: {app: postgres}
+  ports: [{name: postgres, port: 5432, targetPort: 5432}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: products, namespace: app-dev}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: products}}
+  template:
+    metadata: {labels: {app: products}}
+    spec:
+      containers:
+        - name: products
+          image: local-devops/products:dev
+          imagePullPolicy: Never
+          env: [{name: DATABASE_URL, value: postgresql://shop:local_only_change_me@postgres:5432/shop}]
+          ports: [{containerPort: 8000}]
+          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 5, periodSeconds: 5}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: products, namespace: app-dev}
+spec:
+  selector: {app: products}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: payments, namespace: app-dev}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: payments}}
+  template:
+    metadata: {labels: {app: payments}}
+    spec:
+      containers:
+        - name: payments
+          image: local-devops/payments:dev
+          imagePullPolicy: Never
+          ports: [{containerPort: 8000}]
+          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 3, periodSeconds: 5}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: payments, namespace: app-dev}
+spec:
+  selector: {app: payments}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: orders, namespace: app-dev}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: orders}}
+  template:
+    metadata: {labels: {app: orders}}
+    spec:
+      containers:
+        - name: orders
+          image: local-devops/orders:dev
+          imagePullPolicy: Never
+          env:
+            - {name: DATABASE_URL, value: postgresql://shop:local_only_change_me@postgres:5432/shop}
+            - {name: PAYMENT_URL, value: http://payments:8000}
+          ports: [{containerPort: 8000}]
+          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 5, periodSeconds: 5}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: orders, namespace: app-dev}
+spec:
+  selector: {app: orders}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web, namespace: app-dev}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: web}}
+  template:
+    metadata: {labels: {app: web}}
+    spec:
+      containers:
+        - name: web
+          image: local-devops/web:dev
+          imagePullPolicy: Never
+          ports: [{containerPort: 80}]
+          readinessProbe: {httpGet: {path: /, port: 80}, initialDelaySeconds: 3, periodSeconds: 5}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: web, namespace: app-dev}
+spec:
+  selector: {app: web}
+  ports: [{port: 80, targetPort: 80}]
