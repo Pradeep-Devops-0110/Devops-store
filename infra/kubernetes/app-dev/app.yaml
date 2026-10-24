@@ -12,131 +12,266 @@ data:
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: postgres, namespace: app-dev}
+metadata:
+  name: postgres
+  namespace: app-dev
 spec:
   replicas: 1
-  selector: {matchLabels: {app: postgres}}
+  selector:
+    matchLabels:
+      app: postgres
   template:
-    metadata: {labels: {app: postgres}}
+    metadata:
+      labels:
+        app: postgres
     spec:
       containers:
         - name: postgres
           image: postgres:16-alpine
           env:
-            - {name: POSTGRES_DB, value: shop}
-            - {name: POSTGRES_USER, value: shop}
-            - {name: POSTGRES_PASSWORD, value: local_only_change_me}
-          ports: [{name: postgres, containerPort: 5432}]
+            - name: POSTGRES_DB
+              value: shop
+            - name: POSTGRES_USER
+              value: shop
+            - name: POSTGRES_PASSWORD
+              value: local_only_change_me
+          ports:
+            - name: postgres
+              containerPort: 5432
           readinessProbe:
-            exec: {command: ["sh", "-c", "pg_isready -U shop -d shop"]}
+            exec:
+              command: ["sh", "-c", "pg_isready -U shop -d shop"]
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
-            - {name: db-init, mountPath: /docker-entrypoint-initdb.d/init.sql, subPath: init.sql, readOnly: true}
-            - {name: db-data, mountPath: /var/lib/postgresql/data}
+            - name: db-init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+              readOnly: true
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
       volumes:
-        - {name: db-init, configMap: {name: shop-db-init}}
-        - {name: db-data, emptyDir: {}}
+        - name: db-init
+          configMap:
+            name: shop-db-init
+        - name: db-data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: postgres, namespace: app-dev}
+metadata:
+  name: postgres
+  namespace: app-dev
 spec:
-  selector: {app: postgres}
-  ports: [{name: postgres, port: 5432, targetPort: 5432}]
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: products, namespace: app-dev}
+metadata:
+  name: products
+  namespace: app-dev
 spec:
   replicas: 1
-  selector: {matchLabels: {app: products}}
+  selector:
+    matchLabels:
+      app: products
   template:
-    metadata: {labels: {app: products}}
+    metadata:
+      labels:
+        app: products
     spec:
       containers:
         - name: products
           image: local-devops/products:dev
           imagePullPolicy: Never
-          env: [{name: DATABASE_URL, value: postgresql://shop:local_only_change_me@postgres:5432/shop}]
-          ports: [{containerPort: 8000}]
-          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 5, periodSeconds: 5}
+          env:
+            - name: DATABASE_URL
+              value: postgresql://shop:local_only_change_me@postgres:5432/shop
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: products, namespace: app-dev}
+metadata:
+  name: products
+  namespace: app-dev
+  labels:
+    app: products
 spec:
-  selector: {app: products}
-  ports: [{port: 8000, targetPort: 8000}]
+  selector:
+    app: products
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: payments, namespace: app-dev}
+metadata:
+  name: payments
+  namespace: app-dev
 spec:
   replicas: 1
-  selector: {matchLabels: {app: payments}}
+  selector:
+    matchLabels:
+      app: payments
   template:
-    metadata: {labels: {app: payments}}
+    metadata:
+      labels:
+        app: payments
     spec:
       containers:
         - name: payments
           image: local-devops/payments:dev
           imagePullPolicy: Never
-          ports: [{containerPort: 8000}]
-          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 3, periodSeconds: 5}
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: payments, namespace: app-dev}
+metadata:
+  name: payments
+  namespace: app-dev
+  labels:
+    app: payments
 spec:
-  selector: {app: payments}
-  ports: [{port: 8000, targetPort: 8000}]
+  selector:
+    app: payments
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: orders, namespace: app-dev}
+metadata:
+  name: orders
+  namespace: app-dev
 spec:
   replicas: 1
-  selector: {matchLabels: {app: orders}}
+  selector:
+    matchLabels:
+      app: orders
   template:
-    metadata: {labels: {app: orders}}
+    metadata:
+      labels:
+        app: orders
     spec:
       containers:
         - name: orders
           image: local-devops/orders:dev
           imagePullPolicy: Never
           env:
-            - {name: DATABASE_URL, value: postgresql://shop:local_only_change_me@postgres:5432/shop}
-            - {name: PAYMENT_URL, value: http://payments:8000}
-          ports: [{containerPort: 8000}]
-          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 5, periodSeconds: 5}
+            - name: DATABASE_URL
+              value: postgresql://shop:local_only_change_me@postgres:5432/shop
+            - name: PAYMENT_URL
+              value: http://payments:8000
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: orders, namespace: app-dev}
+metadata:
+  name: orders
+  namespace: app-dev
+  labels:
+    app: orders
 spec:
-  selector: {app: orders}
-  ports: [{port: 8000, targetPort: 8000}]
+  selector:
+    app: orders
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: web, namespace: app-dev}
+metadata:
+  name: web
+  namespace: app-dev
 spec:
   replicas: 1
-  selector: {matchLabels: {app: web}}
+  selector:
+    matchLabels:
+      app: web
   template:
-    metadata: {labels: {app: web}}
+    metadata:
+      labels:
+        app: web
     spec:
       containers:
         - name: web
           image: local-devops/web:dev
           imagePullPolicy: Never
-          ports: [{containerPort: 80}]
-          readinessProbe: {httpGet: {path: /, port: 80}, initialDelaySeconds: 3, periodSeconds: 5}
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: web, namespace: app-dev}
+metadata:
+  name: web
+  namespace: app-dev
 spec:
-  selector: {app: web}
-  ports: [{port: 80, targetPort: 80}]
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: store-services
+  namespace: app-dev
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - app-dev
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - products
+          - orders
+          - payments
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

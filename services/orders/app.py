@@ -3,7 +3,9 @@ from uuid import uuid4
 import httpx, psycopg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr, Field
+from prometheus_fastapi_instrumentator import Instrumentator
 app=FastAPI(title="Orders API")
+Instrumentator().instrument(app).expose(app)
 class Item(BaseModel): product_id:int; quantity:int=Field(gt=0,le=10)
 class Request(BaseModel): customer_email:EmailStr; items:list[Item]=Field(min_length=1); payment_token:str
 @app.get("/health")

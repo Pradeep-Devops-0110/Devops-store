@@ -1,7 +1,9 @@
 from uuid import uuid4
 from fastapi import FastAPI
 from pydantic import BaseModel,Field
+from prometheus_fastapi_instrumentator import Instrumentator
 app=FastAPI(title="Simulated Payments API")
+Instrumentator().instrument(app).expose(app)
 class Charge(BaseModel):
     order_id:str
     amount_cents:int=Field(gt=0)
